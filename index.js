@@ -1,0 +1,114 @@
+'use strict';
+// key: タスクの文字列 value: 完了しているかどうかの真偽値
+let tasks = new Map();
+
+const fs = require('fs');
+const fileName = './tasks.json';
+const http = require('http');
+const server = http.createServer((req, res) => {
+  const now = new Date();
+  console.info('Requested by ' + req.connection.remoteAddress);
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8'
+  });
+
+
+// 同期的にファイルから復元
+try {
+	const data = fs.readFileSync(fileName, 'utf8');
+	tasks = new Map(JSON.parse(data));
+} catch (ignore) {
+	console.log(fileName + 'から復元できませんでした');
+}
+
+/**
+ * タスクをファイルに保存する
+ */
+function saveTasks() {
+	fs.writeFileSync(fileName, JSON.stringify(Array.from(tasks)), 'utf8');
+}
+
+/**
+ * TODOを追加する
+ * @param {string} task
+ */
+function todo(task) {
+	tasks.set(task, false);
+	saveTasks();
+}
+
+/**
+ * タスクと完了したかどうかが含まれる配列を受け取り、完了したかを返す
+ * @param {array} taskAndIsDonePair
+ * @return {boolean} 完了したかどうか
+ */
+function isDone(taskAndIsDonePair) {
+	return taskAndIsDonePair[1];
+}
+
+/**
+ * タスクと完了したかどうかが含まれる配列を受け取り、完了していないかを返す
+ * @param {array} taskAndIsDonePair
+ * @return {boolean} 完了していないかどうか
+ */
+function isNotDone(taskAndIsDonePair) {
+	return !isDone(taskAndIsDonePair);
+}
+
+/**
+ * TODOの一覧の配列を取得する
+ * @return {array}
+ */
+function list() {
+	return Array.from(tasks)
+		.filter(isNotDone)
+		.map(t => t[0]);
+}
+
+/**
+ * TODOを完了状態にする
+ * @param {string} task
+ */
+function done(task) {
+	if (tasks.has(task)) {
+		tasks.set(task, true);
+		saveTasks();
+	}
+}
+
+/**
+ * 完了済みのタスクの一覧の配列を取得する
+ * @return {array}
+ */
+function donelist() {
+	return Array.from(tasks)
+		.filter(isDone)
+		.map(t => t[0]);
+}
+
+/**
+ * 項目を削除する
+ * @param {string} task
+ */
+function del(task) {
+	tasks.delete(task);
+	saveTasks();
+}
+
+module.exports = {
+	todo: todo,
+	list: list,
+	done: done,
+	donelist: donelist,
+	del: del
+};
+
+}).on('error', (e) => {
+  console.error('[' + new Date() + '] Server Error', e);
+}).on('clientError', (e) => {
+  console.error('[' + new Date() + '] Client Error', e);
+});
+const port = process.env.PORT || 8000;
+server.listen(port, () => {
+  console.info('Listening on ' + port);
+});
